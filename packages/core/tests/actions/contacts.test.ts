@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { protobuf_decode, protobuf_encode } from '@snowluma/proton';
 import type { pb, pb_repeated, uint_32, uint_64 } from '@snowluma/proton';
 import type { SendPacketResult } from '@snowluma/common/packet-sender';
+import type { GroupMemberInfo } from '@snowluma/protocol/qq-info';
 import type {
     OidbBase,
     OidbEmpty,
@@ -652,7 +653,9 @@ describe('apis/contacts / categorized friend roster', () => {
 
 describe('apis/contacts / robot group-member classification', () => {
     it('loads QQ robot ranges once and marks every fetched member', async () => {
-        const rememberGroupMembers = vi.fn();
+        const rememberGroupMembers = vi.fn(
+            (_groupId: number, members: GroupMemberInfo[]) => members,
+        );
         const sendRawPacket = vi.fn(
             async (cmd: string, _data: Uint8Array): Promise<SendPacketResult> => {
                 if (cmd === 'OidbSvcTrpcTcp.0x496_0') {
@@ -735,7 +738,9 @@ describe('apis/contacts / robot group-member classification', () => {
                 throw new Error(`unexpected command: ${cmd}`);
             },
         );
-        const rememberGroupMembers = vi.fn();
+        const rememberGroupMembers = vi.fn(
+            (_groupId: number, members: GroupMemberInfo[]) => members,
+        );
         const api = new ContactsApi({
             sendRawPacket,
             identity: { uin: '10001', rememberGroupMembers },

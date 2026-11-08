@@ -391,7 +391,7 @@ export class IdentityService {
         }
 
         this.assertPersistenceCapacity('group member update');
-        const observed = { ...member };
+        const observed = this.retainGroupMemberCard(groupId, member);
         const persisted: MemberInput = { groupId, ...observed, active: true };
         g.members.set(observed.uin, observed);
         this.rememberUidUin(observed.uid, observed.uin);
@@ -780,7 +780,8 @@ export class IdentityService {
         });
     }
 
-    rememberGroupMembers(groupId: number, members: GroupMemberInfo[]): void {
+    /** Returns the refreshed roster with previously known cards retained when unreadable. */
+    rememberGroupMembers(groupId: number, members: GroupMemberInfo[]): GroupMemberInfo[] {
         this.beginObservation('group members');
 
         if (!this.loaded_) {
@@ -790,7 +791,7 @@ export class IdentityService {
             });
         }
 
-        const observed = members.map((member) => ({ ...member }));
+        const observed = members.map((member) => this.retainGroupMemberCard(groupId, member));
         const persisted = observed.map((member): MemberInput => ({
             groupId,
             ...member,
@@ -816,6 +817,7 @@ export class IdentityService {
                     }
                 }),
         );
+        return observed;
     }
 
     rememberUserProfile(info: UserProfileInfo): void {
@@ -1120,6 +1122,16 @@ export class IdentityService {
         }
     }
 
+    private retainGroupMemberCard(groupId: number, member: GroupMemberInfo): GroupMemberInfo {
+        const previous = this.findGroupMember(groupId, member.uin)?.card;
+        return {
+            ...member,
+            card:
+                member.card ??
+                (previous !== undefined && !isBinaryCardText(previous) ? previous : undefined),
+        };
+    }
+
     private setGroupMembersInMemory(groupId: number, members: GroupMemberInfo[]): void {
         const g = this.groups_.get(groupId);
 
@@ -1182,6 +1194,7 @@ export class IdentityService {
         uin            INTEGER,
         nickname       TEXT NOT NULL DEFAULT '',
         card           TEXT NOT NULL DEFAULT '',
+        card_known     INTEGER NOT NULL DEFAULT 1,
         role           TEXT NOT NULL DEFAULT 'member',
         level          INTEGER NOT NULL DEFAULT 0,
         title          TEXT NOT NULL DEFAULT '',
@@ -1208,12 +1221,17 @@ export class IdentityService {
             'PRAGMA table_info(group_members)',
         ).all()) as Array<{ name: string }>;
 
-        if (columns.some((column) => column.name === 'is_robot')) {
-            return;
+        if (!columns.some((column) => column.name === 'is_robot')) {
+            await this.db!.exec('ALTER TABLE group_members ADD COLUMN is_robot INTEGER');
+            this.log.info('identity schema migrated: added group_members.is_robot');
         }
 
-        await this.db!.exec('ALTER TABLE group_members ADD COLUMN is_robot INTEGER');
-        this.log.info('identity schema migrated: added group_members.is_robot');
+        if (!columns.some((column) => column.name === 'card_known')) {
+            await this.db!.exec(
+                'ALTER TABLE group_members ADD COLUMN card_known INTEGER NOT NULL DEFAULT 1',
+            );
+            this.log.info('identity schema migrated: added group_members.card_known');
+        }
     }
 
     private async loadSnapshot(): Promise<void> {
@@ -1309,7 +1327,7 @@ export class IdentityService {
 
         const select = this.db!.prepare(
             `SELECT group_id, uid, uin, nickname,
-              CASE WHEN instr(card, char(0)) = 0 THEN card END AS card, role, level, title,
+              CASE WHEN card_known = 1 AND instr(card, char(0)) = 0 THEN card END AS card, role, level, title,
               join_time, last_sent_time, shut_up_time, is_robot
        FROM group_members
        WHERE group_id = ? AND active = 1`,
@@ -1491,7 +1509,8 @@ export class IdentityService {
             await this.db!.prepare(
                 `UPDATE group_members
          SET uid = ?, uin = ?, nickname = ?, card = COALESCE(?, card), role = ?, level = ?, title = ?,
-             join_time = ?, last_sent_time = ?, shut_up_time = ?, is_robot = ?, active = ?, updated_at = ?
+             join_time = ?, last_sent_time = ?, shut_up_time = ?, is_robot = ?, active = ?, updated_at = ?,
+             card_known = CASE WHEN ? IS NULL THEN card_known ELSE 1 END
          WHERE id = ?`,
             ).run(
                 merged.uid,
@@ -1507,6 +1526,7 @@ export class IdentityService {
                 merged.isRobot,
                 merged.active,
                 merged.updatedAt,
+                input.card ?? null,
                 primary.id,
             );
             return;
@@ -1515,8 +1535,8 @@ export class IdentityService {
         await this.db!.prepare(
             `INSERT INTO group_members
        (group_id, uid, uin, nickname, card, role, level, title,
-        join_time, last_sent_time, shut_up_time, is_robot, active, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        join_time, last_sent_time, shut_up_time, is_robot, active, updated_at, card_known)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
             input.groupId,
             merged.uid,
@@ -1532,6 +1552,7 @@ export class IdentityService {
             merged.isRobot,
             merged.active,
             merged.updatedAt,
+            input.card === undefined ? 0 : 1,
         );
     }
 

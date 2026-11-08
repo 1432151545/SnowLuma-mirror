@@ -227,11 +227,13 @@ describe('IdentityService', () => {
         }
     });
 
-    it('migrates legacy member caches without inventing a robot classification', async () => {
-        const dbPath = tempDbPath('migrate-robot');
-        fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-        const legacy = new DatabaseSync(dbPath);
-        legacy.exec(`
+    it.each([false, true])(
+        'migrates legacy member cards and retries after failure=%s',
+        async (failMigration) => {
+            const dbPath = tempDbPath('migrate-robot');
+            fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+            const legacy = new DatabaseSync(dbPath);
+            legacy.exec(`
       CREATE TABLE users (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         uid        TEXT UNIQUE,
@@ -264,6 +266,7 @@ describe('IdentityService', () => {
         join_time      INTEGER NOT NULL DEFAULT 0,
         last_sent_time INTEGER NOT NULL DEFAULT 0,
         shut_up_time   INTEGER NOT NULL DEFAULT 0,
+        ${failMigration ? 'is_robot INTEGER,' : ''}
         active         INTEGER NOT NULL DEFAULT 1,
         updated_at     INTEGER NOT NULL,
         UNIQUE(group_id, uid),
@@ -274,19 +277,96 @@ describe('IdentityService', () => {
       INSERT INTO group_members (group_id, uid, uin, nickname, updated_at)
       VALUES (${GROUP_ID}, 'u_legacy', 33333, 'legacy-member', 1);
     `);
-        legacy.close();
+            legacy.close();
 
-        const identity = new IdentityService(SELF_UIN, dbPath);
-        await identity.initialization;
-        expect(identity.findGroupMember(GROUP_ID, 33333)?.isRobot).toBeUndefined();
-        await identity.close();
+            if (failMigration) {
+                const originalExec = SqliteDatabase.prototype.exec;
+                const fault = vi
+                    .spyOn(SqliteDatabase.prototype, 'exec')
+                    .mockImplementation(function (this: SqliteDatabase, sql) {
+                        if (sql.includes('ADD COLUMN card_known')) {
+                            return Promise.reject(new Error('injected card migration failure'));
+                        }
 
-        const migrated = new DatabaseSync(dbPath);
-        const columns = migrated.prepare('PRAGMA table_info(group_members)').all() as Array<{
-            name: string;
-        }>;
-        expect(columns.map((column) => column.name)).toContain('is_robot');
-        migrated.close();
+                        return originalExec.call(this, sql);
+                    });
+                const failed = new IdentityService(SELF_UIN, dbPath);
+
+                try {
+                    await expect(failed.initialization).rejects.toThrow(
+                        'injected card migration failure',
+                    );
+                    await expect(failed.close()).rejects.toThrow('injected card migration failure');
+                } finally {
+                    fault.mockRestore();
+                    await failed.close();
+                }
+            }
+
+            const identity = new IdentityService(SELF_UIN, dbPath);
+            await identity.initialization;
+            expect(identity.findGroupMember(GROUP_ID, 33333)?.isRobot).toBeUndefined();
+            expect(identity.findGroupMember(GROUP_ID, 33333)?.card).toBe('');
+            await identity.close();
+
+            const migrated = new DatabaseSync(dbPath);
+            const columns = migrated.prepare('PRAGMA table_info(group_members)').all() as Array<{
+                name: string;
+            }>;
+            expect(columns.map((column) => column.name)).toContain('is_robot');
+            expect(columns.map((column) => column.name)).toContain('card_known');
+            migrated.close();
+
+            const reopened = new IdentityService(SELF_UIN, dbPath);
+            await reopened.initialization;
+            expect(reopened.findGroupMember(GROUP_ID, 33333)?.card).toBe('');
+            await reopened.close();
+        },
+    );
+
+    it('preserves valid cards when an unreadable roster arrives during initialization', async () => {
+        const dbPath = tempDbPath('pending-card-roster');
+        const member = makeMember(33333, 'u_member', 'valid card');
+        const seed = new IdentityService(SELF_UIN, dbPath);
+        seed.rememberGroups([makeGroup()]);
+        seed.rememberGroupMembers(GROUP_ID, [member]);
+        await seed.close();
+        let release!: () => void;
+        const loading = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        const identity = new IdentityService(SELF_UIN, dbPath, loading);
+        const unreadable = { ...member, card: undefined, role: 'admin' };
+        identity.rememberGroupMembers(GROUP_ID, [unreadable]);
+        release();
+
+        try {
+            await identity.initialization;
+            expect(identity.findGroupMember(GROUP_ID, member.uin)).toMatchObject({
+                card: 'valid card',
+                role: 'admin',
+            });
+            identity.updateGroupMember(GROUP_ID, { ...unreadable, level: 9 });
+            expect(identity.findGroupMember(GROUP_ID, member.uin)).toMatchObject({
+                card: 'valid card',
+                level: 9,
+            });
+        } finally {
+            await identity.close();
+        }
+
+        const reopened = new IdentityService(SELF_UIN, dbPath);
+
+        try {
+            await reopened.initialization;
+            expect(reopened.findGroupMember(GROUP_ID, member.uin)).toMatchObject({
+                card: 'valid card',
+                role: 'admin',
+                level: 9,
+            });
+        } finally {
+            await reopened.close();
+        }
     });
 
     it('keeps updateGroupMember changes after reopening the persistent cache', async () => {

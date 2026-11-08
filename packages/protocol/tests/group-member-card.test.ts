@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { subscribeLogs } from '@snowluma/common/logger';
 import type { PushMsg } from '@snowluma/proto-defs/message';
 import type { OidbBase, OidbSvcTrpcTcp0xFE7_3Response } from '@snowluma/proto-defs/oidb';
 import { protobuf_encode } from '@snowluma/proton';
@@ -136,10 +137,38 @@ describe('group member card wire formats', () => {
         });
     });
 
-    it('rejects unreadable roster data and still delivers a message with damaged metadata', async () => {
+    it.each(['0a051202ff00', '616207'])(
+        'keeps a member with unreadable card %s and logs its context',
+        async (encoded) => {
+            const damaged = hex(encoded);
+            const warnings: string[] = [];
+            const unsubscribe = subscribeLogs((entry) => {
+                if (entry.level === 'warn') {
+                    warnings.push(entry.message);
+                }
+            });
+
+            try {
+                expect(await fetchMember(damaged)).toMatchObject({
+                    uin,
+                    nickname: 'nickname',
+                    card: undefined,
+                });
+                expect(warnings).toEqual([
+                    expect.stringMatching(
+                        new RegExp(`group=42 member=123 bytes=${damaged.length} reason=group card`),
+                    ),
+                ]);
+                expect(warnings[0]).not.toContain(encoded);
+                expect(warnings[0]).not.toContain('nickname');
+            } finally {
+                unsubscribe();
+            }
+        },
+    );
+
+    it('still delivers a message with damaged metadata', async () => {
         const damaged = hex('0a051202ff00');
-        await expect(fetchMember(damaged)).rejects.toThrow('group card');
-        await expect(fetchMember(hex('616207'))).rejects.toThrow('control characters');
         const identity = withCachedMember(await fetchMember(Buffer.from('existing card')));
         expect(push(identity, damaged)).toMatchObject({
             senderNick: 'nickname',

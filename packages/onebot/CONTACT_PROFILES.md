@@ -49,3 +49,16 @@ The exported `FriendInfo`, `StrangerInfo`, `PublicProfileFields` and
 `ProfilePrivilege` types describe these fields. Returned availability depends
 on QQ and the account's access; requesting enrichment does not guarantee every
 field is present.
+
+## Group member cards
+
+`get_group_member_list` and `get_group_member_info` keep returning member data
+when an individual group card cannot be decoded. The last valid card for that
+member in the same group and account is retained; if none is known, the OneBot
+`card` field is an empty string. An explicitly empty card from QQ clears a
+previous value.
+
+Unreadable cards are logged with the group, member, byte length and decoding
+reason. The persistent cache distinguishes an unknown card from a confirmed
+empty one, so later roster refreshes can recover it after restart. The existing
+60-second roster cache and `no_cache: true` refresh option still apply.

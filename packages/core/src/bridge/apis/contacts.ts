@@ -523,8 +523,7 @@ export class ContactsApi {
             member.isRobot = isRobotUin(member.uin, robotSnapshot.ranges);
         }
 
-        this.ctx.identity.rememberGroupMembers(groupId, members);
-        return members;
+        return this.ctx.identity.rememberGroupMembers(groupId, members);
     }
 
     async fetchUserProfile(uin: number): Promise<UserProfileInfo> {

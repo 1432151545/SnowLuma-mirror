@@ -761,16 +761,13 @@ function formatGroupMember(
         );
     }
 
-    if (member.card === undefined) {
-        throw new Error(`group member card unavailable: group=${groupId} member=${member.uin}`);
-    }
-
     const qage = accountAge(profile?.regTime);
     return {
         group_id: groupId,
         user_id: member.uin,
         nickname: member.nickname,
-        card: member.card,
+        // OneBot requires a string; keep the unknown state in the identity store.
+        card: member.card ?? '',
         is_robot: member.isRobot,
         sex: 'unknown',
         age: 0,

@@ -99,7 +99,7 @@ export interface GroupMemberInfo {
     uin: number;
     uid: string;
     nickname: string;
-    /** Empty when unset; undefined until an unreadable card is refreshed. */
+    /** Empty when unset; undefined when unreadable and no previously valid card is known. */
     card?: string;
     /** Undefined until QQ's server-provided robot ranges classify this member. */
     isRobot?: boolean;

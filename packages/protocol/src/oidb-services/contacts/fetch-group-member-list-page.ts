@@ -6,12 +6,15 @@
 // state that's per-Bridge (and is what stops Tencent risk-control
 // from banning the account on busy clients — see #42).
 
+import { createLogger } from '@snowluma/common/logger';
 import type { OidbBase, OidbSvcTrpcTcp0xFE7_3Response } from '@snowluma/proto-defs/oidb';
 import type { OidbGroupMemberListRequest } from '@snowluma/proto-defs/oidb-actions/base';
 import { protobuf_decode, protobuf_encode } from '@snowluma/proton';
 import { decodeGroupMemberCard } from '../../group-member-card';
 import type { GroupMemberInfo } from '../../qq-info';
 import { invokeOidb, type OidbSender } from '../../oidb-service';
+
+const log = createLogger('Protocol.GroupMemberCard');
 
 export interface GroupMemberListPage {
     members: GroupMemberInfo[];
@@ -80,20 +83,39 @@ export namespace FetchGroupMemberListPage {
     export const deserialize = (
         _ctx: Deps,
         body: OidbSvcTrpcTcp0xFE7_3Response,
+        groupId = body.groupUin ?? 0,
     ): GroupMemberListPage => ({
-        members: (body.members ?? []).map((raw) => ({
-            uin: raw.uin?.uin ?? 0,
-            uid: raw.uin?.uid ?? '',
-            nickname: raw.memberName ?? '',
-            card: decodeGroupMemberCard(raw.memberCard?.memberCard),
-            isRobot: false,
-            role: permissionToRole(raw.permission ?? 0),
-            level: raw.level?.level ?? 0,
-            title: raw.specialTitle ?? '',
-            joinTime: raw.joinTimestamp ?? 0,
-            lastSentTime: raw.lastMsgTimestamp ?? 0,
-            shutUpTime: raw.shutUpTimestamp ?? 0,
-        })),
+        members: (body.members ?? []).map((raw) => {
+            const uin = raw.uin?.uin ?? 0;
+            const bytes = raw.memberCard?.memberCard;
+            let card: string | undefined;
+
+            try {
+                card = decodeGroupMemberCard(bytes);
+            } catch (error) {
+                log.warn(
+                    'unreadable group member card: group=%d member=%d bytes=%d reason=%s',
+                    groupId,
+                    uin,
+                    bytes?.length ?? 0,
+                    error instanceof Error ? error.message : String(error),
+                );
+            }
+
+            return {
+                uin,
+                uid: raw.uin?.uid ?? '',
+                nickname: raw.memberName ?? '',
+                card,
+                isRobot: false,
+                role: permissionToRole(raw.permission ?? 0),
+                level: raw.level?.level ?? 0,
+                title: raw.specialTitle ?? '',
+                joinTime: raw.joinTimestamp ?? 0,
+                lastSentTime: raw.lastMsgTimestamp ?? 0,
+                shutUpTime: raw.shutUpTimestamp ?? 0,
+            };
+        }),
         token: body.token ?? '',
     });
 
@@ -104,5 +126,12 @@ export namespace FetchGroupMemberListPage {
         protobuf_decode<OidbBase<OidbSvcTrpcTcp0xFE7_3Response>>(bytes);
 
     export const invoke = (deps: Deps, params: Params): Promise<GroupMemberListPage> =>
-        invokeOidb(deps, FetchGroupMemberListPage, params);
+        invokeOidb(
+            deps,
+            {
+                ...FetchGroupMemberListPage,
+                deserialize: (ctx, body) => deserialize(ctx, body, params.groupId),
+            },
+            params,
+        );
 }

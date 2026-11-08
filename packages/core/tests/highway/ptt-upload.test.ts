@@ -39,11 +39,12 @@ describe('ptt-upload', () => {
         vi.mocked(pipeline.runNtv2Upload).mockResolvedValueOnce({
             msgInfo: { msgInfoBody: [{ index: node }] },
         } as any);
-        const element = { ...FINGERPRINT };
+        const element = { ...FINGERPRINT, isNtv2: false };
         await uploadPttMsgInfo({} as any, true, 12345, element);
         expect(element).toMatchObject({
             fileId: 'uploaded-resource',
             mediaNode: node,
+            isNtv2: true,
             md5Hex: 'aa',
             sha1Hex: 'bb',
         });

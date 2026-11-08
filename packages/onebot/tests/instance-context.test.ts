@@ -1141,6 +1141,8 @@ describe('buildApiContext media', () => {
             duration: 2,
             size: 16,
             format: 1,
+            isNtv2: false,
+            storeRegion: 0,
         });
     });
 

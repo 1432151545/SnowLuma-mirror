@@ -52,6 +52,7 @@ export class MediaIndexer {
                 md5Hex: element.md5Hex,
                 sha1Hex: element.sha1Hex,
                 voiceFormat: element.voiceFormat,
+                isNtv2: element.isNtv2,
             });
             return;
         }

@@ -4,14 +4,6 @@ import type { pb, uint_32, uint_64 } from '@snowluma/proton';
  * Voice-to-text (语音转文字) request/response protobufs for the
  * `pttTrans.TransC2CPttReq` / `pttTrans.TransGroupPttReq` SSO commands.
  *
- * Reverse-engineered from QQ-NT `wrapper.node` (macOS 9.9.x) —
- * `im_core/msg/ptt/ptt_trans_worker.cc` (`EncodeC2CPtt` / `EncodeTroopPtt`
- * build the request, `OnTranslateResp` decodes the response). The wire shape
- * here is RE-derived and NOT yet verified against a live server: the numeric
- * field tags are read straight from the encoder, but the length-delimited
- * fields (uuid / md5) and the response `text` tag should be confirmed with a
- * single live capture before relying on them.
- *
  * Flow: the response can carry completed text inline. Otherwise, the caller
  * waits for an asynchronous result correlated with the original message ID.
  */
@@ -55,6 +47,9 @@ export interface PttTransReq {
     type?: pb<1, uint_32>;
     groupItem?: pb<2, GroupPttTransItem>;
     c2cItem?: pb<3, C2CPttTransItem>;
+    /** 1 for NT media, 0 for legacy media; not the audio codec. */
+    isNtv2?: pb<5, uint_32>;
+    storeRegion?: pb<6, uint_32>;
 }
 
 /** Per-scene result. `errCode` 0 = ok; `text` carries the recognised speech. */

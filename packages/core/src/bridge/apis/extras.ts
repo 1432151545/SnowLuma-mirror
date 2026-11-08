@@ -35,6 +35,9 @@ export interface PttTransInput {
     duration: number;
     size: number;
     format: number;
+    /** Omitted by older callers for legacy voice media. */
+    isNtv2?: boolean;
+    storeRegion?: number;
     /** Group ptt numeric file id (group only; optional). */
     fileId?: number;
 }
@@ -390,6 +393,8 @@ export class ExtrasApi {
                       md5,
                   },
               };
+        req.isNtv2 = input.isNtv2 ? 1 : 0;
+        req.storeRegion = input.isNtv2 ? (input.storeRegion ?? 0) : 0;
         const cmd = input.isGroup ? 'pttTrans.TransGroupPttReq' : 'pttTrans.TransC2CPttReq';
 
         const result = await this.ctx.sendRawPacket(cmd, protobuf_encode<PttTransReq>(req));
@@ -406,9 +411,11 @@ export class ExtrasApi {
             // sourced from cache, to tell a server-side ASR failure apart from our own
             // missing/zero field (md5/format/uuid). Behaviour unchanged — still throws.
             log.warn(
-                'ptt translate errCode=%d isGroup=%s md5=%s format=%d uuid=%s dur=%d size=%d',
+                'ptt translate errCode=%d isGroup=%s ntv2=%d region=%d md5=%s format=%d uuid=%s dur=%d size=%d',
                 item.errCode,
                 input.isGroup,
+                req.isNtv2,
+                req.storeRegion,
                 input.md5Hex ? `${input.md5Hex.length / 2}B` : 'EMPTY',
                 input.format,
                 input.uuid ? 'set' : 'EMPTY',

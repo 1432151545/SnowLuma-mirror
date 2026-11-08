@@ -78,6 +78,7 @@ export function attachMessageMedia(segment: JsonObject, element: MessageElement)
         picFormat,
         duration,
         voiceFormat,
+        isNtv2,
         videoFormat,
         fileHash,
         mediaNode,
@@ -100,6 +101,7 @@ export function attachMessageMedia(segment: JsonObject, element: MessageElement)
             picFormat,
             duration,
             voiceFormat,
+            isNtv2,
             videoFormat,
             fileHash,
             mediaNode,
@@ -207,7 +209,13 @@ function mergeKnownMediaFields(old: object, next: object): Record<string, unknow
     for (const [key, value] of Object.entries(next)) {
         // Zero dimensions, sizes and durations are incomplete observations, not
         // evidence that known properties of the same resource have changed.
-        if (value === undefined || value === null || value === '' || value === 0) {
+        // Storage region zero is a valid destination and must replace old values.
+        if (
+            value === undefined ||
+            value === null ||
+            value === '' ||
+            (value === 0 && key !== 'storeId')
+        ) {
             continue;
         }
 

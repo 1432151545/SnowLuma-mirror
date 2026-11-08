@@ -428,6 +428,8 @@ describe('fetchPttText', () => {
             duration: 7,
             size: 4096,
             format: 1,
+            isNtv2: false,
+            storeRegion: 0,
         });
     });
 
@@ -461,6 +463,8 @@ describe('fetchPttText', () => {
             duration: 7,
             size: 4096,
             format: 1,
+            isNtv2: false,
+            storeRegion: 0,
         });
     });
 
@@ -494,6 +498,8 @@ describe('fetchPttText', () => {
             duration: 7,
             size: 4096,
             format: 1,
+            isNtv2: false,
+            storeRegion: 0,
         });
     });
 
@@ -526,6 +532,8 @@ describe('fetchPttText', () => {
             duration: 7,
             size: 4096,
             format: 1,
+            isNtv2: false,
+            storeRegion: 0,
         });
     });
 
@@ -564,6 +572,8 @@ describe('fetchPttText', () => {
             duration: 0,
             size: 0,
             format: 0,
+            isNtv2: false,
+            storeRegion: 0,
         });
     });
 
@@ -591,6 +601,8 @@ describe('fetchPttText', () => {
             duration: 7,
             size: 4096,
             format: 1,
+            isNtv2: false,
+            storeRegion: 0,
         });
     });
 

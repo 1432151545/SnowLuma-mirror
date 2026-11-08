@@ -35,6 +35,7 @@ export interface CachedRecord {
     md5Hex?: string;
     sha1Hex?: string;
     voiceFormat?: number;
+    isNtv2?: boolean;
 }
 
 export interface CachedVideo {

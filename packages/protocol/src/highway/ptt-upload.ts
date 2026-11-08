@@ -310,6 +310,7 @@ export async function uploadPtt(
             fileName: ptt.fileName,
             duration: ptt.duration,
             voiceFormat: ptt.voiceFormat,
+            isNtv2: true,
             fileId: mediaNode?.fileUuid,
             mediaNode,
         });

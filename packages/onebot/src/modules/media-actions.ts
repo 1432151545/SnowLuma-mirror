@@ -222,10 +222,17 @@ export async function fetchPttText(
     const senderUin = Number(event.user_id) || 0;
     // c2c: receiver is self (inbound voice); group: the group uin.
     const peerUin = isGroup ? Number(event.group_id) || cached.sessionId : selfId;
+    // Before the explicit marker was persisted, only NT records carried a
+    // storage region. Legacy records also have mediaNode, but no storeId.
+    // Old decoded NT records can store null for the default region as well.
+    const isNtv2 = cached.isNtv2 ?? cached.mediaNode?.storeId !== undefined;
+    const storeRegion = isNtv2 ? (cached.mediaNode?.storeId ?? 0) : 0;
 
     const text = await requestPttTransText(pttTransKey(selfId, messageId), 20_000, () =>
         bridge.apis.extras.translatePttToText({
             isGroup,
+            isNtv2,
+            storeRegion,
             msgId: messageId,
             senderUin,
             peerUin,

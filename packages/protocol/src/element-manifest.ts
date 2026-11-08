@@ -215,6 +215,7 @@ export const ELEMENT_MANIFEST = {
             'md5Hex',
             'sha1Hex',
             'voiceFormat',
+            'isNtv2',
             'noByteFallback',
             'mediaNode',
         ]),
@@ -353,7 +354,7 @@ const NUMBER_FIELDS: ReadonlySet<string> = new Set([
     'videoFormat',
     'voiceFormat',
 ]);
-const BOOLEAN_FIELDS: ReadonlySet<string> = new Set(['flash', 'noByteFallback', 'large']);
+const BOOLEAN_FIELDS: ReadonlySet<string> = new Set(['flash', 'noByteFallback', 'large', 'isNtv2']);
 
 function throwValidation(
     code: MessageElementValidationCode,

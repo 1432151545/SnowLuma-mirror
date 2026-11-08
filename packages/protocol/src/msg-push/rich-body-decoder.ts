@@ -599,7 +599,7 @@ function assignValidFingerprints(
 function buildMediaNode(idx: IndexNode, fi: FileInfo): MessageElement['mediaNode'] {
     return {
         fileUuid: idx.fileUuid,
-        storeId: idx.storeId,
+        storeId: idx.storeId ?? 0,
         uploadTime: idx.uploadTime,
         ttl: idx.ttl,
         subType: idx.subType,
@@ -1153,6 +1153,7 @@ function convertElements(elems: ElemDecoded[], isGroup: boolean): MessageElement
                                 fileHash: fi.fileHash ?? '',
                                 fileSize: fi.fileSize ?? 0,
                                 voiceFormat: fi.type?.voiceFormat ?? 0,
+                                isNtv2: true,
                                 mediaNode: buildMediaNode(idx, fi),
                             };
                             assignValidFingerprints(
@@ -1579,6 +1580,7 @@ function extractRichtextExtras(
             duration: p.time ?? 0,
             fileHash: md5Hex ?? '',
             voiceFormat: p.format ?? 0,
+            isNtv2: false,
         };
         assignValidFingerprints(me, md5Hex, undefined, 'ptt');
 

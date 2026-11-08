@@ -81,7 +81,12 @@ describe('element-manifest 对账（protocol 侧：D 收·解 / W 发·打包）
                 return 'cd'.repeat(20);
             }
 
-            if (field === 'flash' || field === 'noByteFallback' || field === 'large') {
+            if (
+                field === 'flash' ||
+                field === 'noByteFallback' ||
+                field === 'large' ||
+                field === 'isNtv2'
+            ) {
                 return true;
             }
 

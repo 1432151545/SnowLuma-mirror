@@ -145,6 +145,8 @@ export interface RecordElement extends FingerprintFields {
     url?: string;
     duration?: number;
     voiceFormat?: number;
+    /** Media protocol generation; independent of the audio codec. */
+    isNtv2?: boolean;
     mediaNode?: MediaNode;
 }
 

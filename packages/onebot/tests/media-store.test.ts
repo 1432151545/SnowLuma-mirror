@@ -119,6 +119,41 @@ describe('MediaStore basic semantics', () => {
         await store.close();
     });
 
+    it('keeps a stored download URL when a later index carries none', async () => {
+        const store = open('img-url-retain');
+
+        await store.rememberImage({
+            file: 'abc.png',
+            url: 'https://example.com/abc.png?rkey=live',
+            fileSize: 4242,
+            fileName: 'abc.png',
+            subType: 0,
+            summary: '',
+            imageUrl: 'https://example.com/abc.png?rkey=live',
+            isGroup: true,
+            sessionId: GROUP_ID,
+        });
+
+        // A quoted copy reaches the store with only the hash and no address.
+        await store.rememberImage({
+            file: 'abc.png',
+            url: '',
+            fileSize: 4242,
+            fileName: 'abc.png',
+            subType: 0,
+            summary: '',
+            imageUrl: '',
+            isGroup: true,
+            sessionId: GROUP_ID,
+        });
+
+        const cached = await store.findImage('abc.png');
+
+        expect(cached?.url).toBe('https://example.com/abc.png?rkey=live');
+        expect(cached?.imageUrl).toBe('https://example.com/abc.png?rkey=live');
+        await store.close();
+    });
+
     it('indexes records by file, fileName, fileId, and url', async () => {
         const store = open('rec-keys');
         await store.rememberRecord({

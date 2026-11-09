@@ -235,7 +235,7 @@ export class MediaStore {
             throw new Error(`cannot store ${type} metadata without an identifier`);
         }
 
-        const data = serializeMediaInfo(info);
+        const data = serializeMediaInfo(await this.mergeStoredUrls(type, primary, info));
         await this.db.exec('BEGIN IMMEDIATE');
 
         try {
@@ -322,6 +322,64 @@ export class MediaStore {
                 (value): value is string => typeof value === 'string',
             ),
         );
+    }
+
+    /** Re-indexing an object without a download address — a quoted or forwarded
+     * image often carries only its hash — must not erase an address already
+     * proven for the same object. `get_image` hands `url` straight to its
+     * caller, so a dropped address turns a known picture into an unusable
+     * record that the caller retries until it gives up.
+     */
+    private async mergeStoredUrls(type: string, primary: string, info: object): Promise<object> {
+        const next: Record<string, unknown> = { ...(info as Record<string, unknown>) };
+        const missing = (['url', 'imageUrl'] as const).filter(
+            (field) => field in next && (typeof next[field] !== 'string' || !next[field]),
+        );
+
+        if (missing.length === 0) {
+            return info;
+        }
+
+        const stored = await this.readStoredUrls(type, primary);
+
+        for (const field of missing) {
+            if (stored[field]) {
+                next[field] = stored[field];
+            }
+        }
+
+        return next;
+    }
+
+    /** Direct row read: `remember` already runs inside the serial queue. */
+    private async readStoredUrls(
+        type: string,
+        primary: string,
+    ): Promise<{ url: string; imageUrl: string }> {
+        const empty = { url: '', imageUrl: '' };
+        const row = (await this.findEntry.get(type, type, primary, primary)) as
+            | { data: string }
+            | undefined;
+
+        if (!row) {
+            return empty;
+        }
+
+        try {
+            const parsed: unknown = JSON.parse(row.data);
+
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                return empty;
+            }
+
+            const stored = parsed as Record<string, unknown>;
+            return {
+                url: typeof stored.url === 'string' ? stored.url : '',
+                imageUrl: typeof stored.imageUrl === 'string' ? stored.imageUrl : '',
+            };
+        } catch {
+            return empty;
+        }
     }
 }
 

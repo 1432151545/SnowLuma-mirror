@@ -148,14 +148,17 @@ async function resolveImageUrl(
     cached: CachedImage | null,
     resolver?: ImageUrlResolver | null,
 ): Promise<string | null> {
-    if (!cached?.imageUrl || !resolver) {
+    // get_image returns `url` ahead of `imageUrl`, so a record indexed from
+    // segment data can carry its address only on `url`. That address still
+    // needs signing when its rkey has expired; ignoring it here handed the
+    // caller back an unrefreshed URL.
+    const source = (cached?.imageUrl || cached?.url || '').trim();
+
+    if (!cached || !source || !resolver) {
         return null;
     }
 
-    return resolver(
-        { type: 'image', imageUrl: cached.imageUrl, subType: cached.subType },
-        cached.isGroup,
-    );
+    return resolver({ type: 'image', imageUrl: source, subType: cached.subType }, cached.isGroup);
 }
 
 /**

@@ -150,7 +150,21 @@ describe('group card failures through roster, cache and OneBot output', () => {
             };
             const transport = sendPages(bridge, [
                 firstPage,
-                { members: [{ uin: { uin: 66, uid: 'u_66' } }] },
+                {
+                    members: [
+                        { uin: { uin: 66, uid: 'u_66' } },
+                        {
+                            uin: { uin: 77, uid: 'u_77' },
+                            memberName: 'styled member',
+                            memberCard: {
+                                memberCard: Buffer.from(
+                                    '0a090a0724c7bfc480440e0a071205202014c6951000',
+                                    'hex',
+                                ),
+                            },
+                        },
+                    ],
+                },
             ]);
 
             const output = await getGroupMemberList(bridge, groupId, noCache);
@@ -161,6 +175,7 @@ describe('group card failures through roster, cache and OneBot output', () => {
                 [44, ''],
                 [55, ''],
                 [66, ''],
+                [77, '  ƕ'],
             ]);
             expect(output[0]).toMatchObject({ nickname: 'fresh-11', role: 'admin' });
             expect(output[5]).toMatchObject({ is_robot: true });
@@ -176,6 +191,9 @@ describe('group card failures through roster, cache and OneBot output', () => {
             });
             expect(await getGroupMemberInfo(bridge, groupId, 11)).toMatchObject({
                 card: 'last valid card',
+            });
+            expect(await getGroupMemberInfo(bridge, groupId, 77)).toMatchObject({
+                card: '  ƕ',
             });
             expect(transport.tokens).toEqual(['', 'page-2']);
             await bridge.dispose();

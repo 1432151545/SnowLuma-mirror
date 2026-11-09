@@ -4,11 +4,12 @@ import { protobuf_decode } from '@snowluma/proton';
 
 const log = createLogger('Protocol.GroupMemberCard');
 const utf8 = new TextDecoder('utf-8', { fatal: true });
+// eslint-disable-next-line no-control-regex -- C0 controls except tab/LF/CR, plus DEL.
+const cardControls = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
 
 /** Keep ordinary text whitespace, but never publish binary framing as a name. */
 export function isBinaryCardText(text: string): boolean {
-    // eslint-disable-next-line no-control-regex -- These are the binary framing bytes we must detect.
-    return /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text);
+    return text.search(cardControls) !== -1;
 }
 
 function utf8Text(bytes: Uint8Array): string {
@@ -57,9 +58,9 @@ export function decodeGroupMemberCard(bytes?: Uint8Array): string {
     const text = parts.flatMap((part) =>
         part.control == null && part.text != null ? [part.text] : [],
     );
-    // QQ hides control characters embedded in a text part (e.g. 0x14) and shows the rest.
-    // eslint-disable-next-line no-control-regex -- Same set as isBinaryCardText.
-    return utf8Text(Buffer.concat(text)).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+    // Structured text can contain display controls (#680). Normalize the whole
+    // control set after strict UTF-8 decoding, preserving whitespace and Unicode formatting.
+    return utf8Text(Buffer.concat(text)).replace(cardControls, '');
 }
 
 /** A malformed optional display name must not discard the message itself. */

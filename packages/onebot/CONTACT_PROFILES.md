@@ -52,6 +52,13 @@ field is present.
 
 ## Group member cards
 
+Styled cards are decoded before their text is normalized. Within successfully
+decoded UTF-8 text, SnowLuma removes C0 control characters (`U+0000`–`U+001F`)
+except tab, line feed and carriage return, and removes DEL (`U+007F`). Spaces,
+Unicode formatting characters and emoji sequences are preserved. Raw plain text
+and explicitly literal display names retain strict control-character validation;
+invalid UTF-8 is rejected in both formats.
+
 `get_group_member_list` and `get_group_member_info` keep returning member data
 when an individual group card cannot be decoded. The last valid card for that
 member in the same group and account is retained; if none is known, the OneBot

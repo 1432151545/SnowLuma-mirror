@@ -11,14 +11,16 @@ export function isBinaryCardText(text: string): boolean {
     return /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text);
 }
 
-function displayText(bytes: Uint8Array): string {
-    let text: string;
-
+function utf8Text(bytes: Uint8Array): string {
     try {
-        text = utf8.decode(bytes);
+        return utf8.decode(bytes);
     } catch (cause) {
         throw new Error('group card contains invalid UTF-8', { cause });
     }
+}
+
+function displayText(bytes: Uint8Array): string {
+    const text = utf8Text(bytes);
 
     if (isBinaryCardText(text)) {
         throw new Error('group card text contains binary control characters');
@@ -55,7 +57,9 @@ export function decodeGroupMemberCard(bytes?: Uint8Array): string {
     const text = parts.flatMap((part) =>
         part.control == null && part.text != null ? [part.text] : [],
     );
-    return displayText(Buffer.concat(text));
+    // QQ hides control characters embedded in a text part (e.g. 0x14) and shows the rest.
+    // eslint-disable-next-line no-control-regex -- Same set as isBinaryCardText.
+    return utf8Text(Buffer.concat(text)).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
 }
 
 /** A malformed optional display name must not discard the message itself. */

@@ -99,6 +99,8 @@ describe('group member card wire formats', () => {
         // Reordered outer fields, multiple text parts and a control part containing a text field.
         ['甲乙', hex('10000a051203e794b20a080a01ff1203e581870a070a001203e581870a051203e4b999')],
         ['🌙', hex('0a041202f09f0a0412028c99')], // A UTF-8 code point split between text parts.
+        // #680: QQ hides the 0x14 embedded in the text part and shows "  ƕ".
+        ['  ƕ', hex('0a090a0724c7bfc480440e0a071205202014c6951000')],
         [' 普通🌙 ', Buffer.from(' 普通🌙 ')],
     ] as const)(
         'decodes %s in the roster and in pushes with or without a cached member',
@@ -137,6 +139,7 @@ describe('group member card wire formats', () => {
     it('rejects unreadable roster data and still delivers a message with damaged metadata', async () => {
         const damaged = hex('0a051202ff00');
         await expect(fetchMember(damaged)).rejects.toThrow('group card');
+        await expect(fetchMember(hex('616207'))).rejects.toThrow('control characters');
         const identity = withCachedMember(await fetchMember(Buffer.from('existing card')));
         expect(push(identity, damaged)).toMatchObject({
             senderNick: 'nickname',
